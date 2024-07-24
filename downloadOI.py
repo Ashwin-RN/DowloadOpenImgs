@@ -1,7 +1,8 @@
-#Modified Verion
+#Modified Verion by Ashwin R Nair
 #Original by : Sunita Nayak, Big Vision LLC
 
-#### Usage example: python3 downloadOI.py --classes 'Ice_cream,Cookie' --dataset train --percentage 50
+#### Usage example: python3 downloadOI.py --classes 'Sunglasses' --mode train --percentage 50
+
 
 import argparse
 import csv
@@ -23,12 +24,15 @@ parser.add_argument("--truncated", help="Include truncated images", required=Fal
 parser.add_argument("--groupOf", help="Include groupOf images", required=False, type=int, default=1)
 parser.add_argument("--depiction", help="Include depiction images", required=False, type=int, default=1)
 parser.add_argument("--inside", help="Include inside images", required=False, type=int, default=1)
+parser.add_argument("--percentage", help="Percentage of images to download per class", required=True, type=int)
 
 args = parser.parse_args()
 
 run_mode = args.mode
 
 threads = args.nthreads
+
+percentage = args.percentage
 
 classes = [class_name.strip() for class_name in args.classes.split(',')]
 
@@ -54,7 +58,7 @@ for ind in range(0, len(classes)):
     class_annotations = class_annotations.splitlines()
 
     random.shuffle(class_annotations)
-    class_annotations = class_annotations[:len(class_annotations)//2]  # Keep only 50%
+    class_annotations = class_annotations[:len(class_annotations) * percentage // 100]  # Keep specified percentage
 
     for line in class_annotations:
         line_parts = line.split(',')
