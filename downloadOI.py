@@ -6,16 +6,13 @@ import csv
 import subprocess
 import os
 from tqdm import tqdm
-import multiprocessing
-from multiprocessing import Pool as thread_pool
 import random
-
-cpu_count = multiprocessing.cpu_count()
+import concurrent.futures
 
 parser = argparse.ArgumentParser(description='Download Class specific images from OpenImagesV4')
 parser.add_argument("--mode", help="Dataset category - train, validation or test", required=True)
 parser.add_argument("--classes", help="Names of object classes to be downloaded", required=True)
-parser.add_argument("--nthreads", help="Number of threads to use", type=int, default=cpu_count*2)
+parser.add_argument("--nthreads", help="Number of threads to use", type=int, default=os.cpu_count() * 2)
 parser.add_argument("--occluded", help="Include occluded images", type=int, default=1)
 parser.add_argument("--truncated", help="Include truncated images", type=int, default=1)
 parser.add_argument("--groupOf", help="Include groupOf images", type=int, default=1)
@@ -36,6 +33,25 @@ classes = [class_name.strip() for class_name in args.classes.split(',')]
 if not os.path.exists(drive_path):
     os.makedirs(drive_path)
 
+# Download required meta-files if they don't exist
+meta_files = [
+    'train-annotations-bbox.csv',
+    'validation-annotations-bbox.csv',
+    'test-annotations-bbox.csv',
+    'class-descriptions-boxable.csv'
+]
+
+base_urls = [
+    'https://storage.googleapis.com/openimages/2018_04/train/',
+    'https://storage.googleapis.com/openimages/v5/',
+    'https://storage.googleapis.com/openimages/v5/',
+    'https://storage.googleapis.com/openimages/v5/'
+]
+
+for meta_file, base_url in zip(meta_files, base_urls):
+    if not os.path.exists(os.path.join(drive_path, meta_file)):
+        subprocess.run(['wget', '-P', drive_path, base_url + meta_file])
+
 # Open class-descriptions-boxable.csv file
 with open(os.path.join(drive_path, 'class-descriptions-boxable.csv'), mode='r') as infile:
     reader = csv.reader(infile)
@@ -46,7 +62,6 @@ mode_path = os.path.join(drive_path, run_mode)
 if not os.path.exists(mode_path):
     os.makedirs(mode_path)
 
-pool = thread_pool(threads)
 commands = []
 cnt = 0
 
@@ -115,10 +130,9 @@ def execute_command(command):
     with open(checkpoint_file, 'a') as f:
         f.write(image_id + '\n')
 
-list(tqdm(pool.imap(execute_command, commands), total=len(commands)))
-
-pool.close()
-pool.join()
+# Use ThreadPoolExecutor for parallel processing
+with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+    list(tqdm(executor.map(execute_command, commands), total=len(commands)))
 
 # Save the checkpoint after completing the download
 save_checkpoint(checkpoint)
